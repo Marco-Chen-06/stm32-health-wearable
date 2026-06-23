@@ -691,31 +691,13 @@ const uint8_t bmi270_config_file[] = { 0xc8, 0x2e, 0x00, 0x2e, 0x80, 0x2e, 0x3d,
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-#define I2C_INT_TIMEOUT_MS 100
+//#define I2C_INT_TIMEOUT_MS 100
 
 // 0 means i2c busy, 1 means i2c complete
 static volatile uint8_t i2c_done = 0;
 
 // 0 means no error. HAL_I2C_ErrorCallback updates this value on an error
 static volatile uint32_t i2c_err = 0;
-
-/*
- * i2c_wait: Intended to be used as a busy wait, but in our driver layer,
- * so that when this becomes rtos aware, we can deal with it more easily than with
- * polling.
- * Basically, if the i2c bus is dead for however long time timeout is, we abort
- * the transaction.
- */
-static int i2c_wait(I2C_HandleTypeDef *hi2c) {
-	uint32_t start = HAL_GetTick();
-	while (!i2c_done) {
-		if ((HAL_GetTick() - start > I2C_INT_TIMEOUT_MS) || i2c_err != 0) {
-			HAL_I2C_Master_Abort_IT(hi2c, (BMI270_I2C_DEFAULT_ADDR << 1));
-			return -1;
-		}
-	}
-	return 0;
-}
 
 // hardcoded bmi270 init
 int bmi270_init(I2C_HandleTypeDef *hi2c) {

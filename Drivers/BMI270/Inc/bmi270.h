@@ -10,6 +10,8 @@
 #include "task.h"
 #include "semphr.h"
 
+#include "i2c_bus.h"
+
 typedef struct {
 	int16_t acc_x;
 	int16_t acc_y;

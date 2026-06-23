@@ -1,7 +1,7 @@
 #include "max30102.h"
 #include "max30102_hw.h"
 
-#define I2C_INT_TIMEOUT_MS 100
+//#define I2C_INT_TIMEOUT_MS 100
 
 // 0 means i2c busy, 1 means i2c complete
 static volatile int8_t i2c_done = 0;
@@ -18,24 +18,6 @@ static volatile uint32_t i2c_err = 0;
 __weak void max30102_plot(uint32_t ir_sample)
 {
     UNUSED(ir_sample);
-}
-
-/*
- * i2c_wait: Intended to be used as a busy wait, but in our driver layer, so that when
- * we make this driver rtos aware, we can deal with it more easily than with polling by
- * just using semaphores.
- * Basic functionality: If the i2c bus is dead for however long the timeout is, we
- * abort the i2c transaction.
- */
-static int i2c_wait(I2C_HandleTypeDef *hi2c) {
-	uint32_t start = HAL_GetTick();
-	while (!i2c_done) {
-		if ((HAL_GetTick() - start > I2C_INT_TIMEOUT_MS) || i2c_err != 0) {
-			HAL_I2C_Master_Abort_IT(hi2c, (MAX30102_I2C_DEFAULT_ADDR << 1));
-			return -1;
-		}
-	}
-	return 0;
 }
 
 int max30102_init(max30102_t *dev, I2C_HandleTypeDef *hi2c) {

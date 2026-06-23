@@ -11,6 +11,8 @@
 #include "task.h"
 #include "semphr.h"
 
+#include "i2c_bus.h"
+
 
 #define MAX30102_SAMPLE_LEN_MAX 32
 

@@ -28,6 +28,8 @@
 #include "task.h"
 #include "semphr.h"
 
+#include "i2c_bus.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,8 +64,23 @@ const osThreadAttr_t defaultTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 TaskHandle_t xAD8232TaskHandle = NULL;
-TaskHandle_t xMAX30102TaskHandle = NULL;
 TaskHandle_t xBMI270TaskHandle = NULL;
+TaskHandle_t xMAX30102TaskHandle = NULL;
+
+static i2c_bus_ctx_t bmi270_bus_ctx = {
+		.hi2c = &hi2c1,
+		.sem = NULL,
+		.err = 0,
+};
+
+static i2c_bus_ctx_t max30102_bus_ctx = {
+		.hi2c = &hi2c2,
+		.sem = NULL,
+		.err = 0,
+};
+
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,8 +94,8 @@ void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void vAD8232Task(void *pvParameters);
-void vMAX30102Task(void *pvParameters);
 void vBMI270Task(void *pvParameters);
+void vMAX30102Task(void *pvParameters);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -132,6 +149,8 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
+  bmi270_bus_ctx.sem = xSemaphoreCreateBinary();
+  max30102_bus_ctx.sem = xSemaphoreCreateBinary();
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -150,9 +169,9 @@ int main(void)
   /* add threads, ... */
   xTaskCreate(vAD8232Task, "vAD8232Task", 128, NULL, 2, &xAD8232TaskHandle);
 
-  xTaskCreate(vMAX30102Task, "vMAX30102Task", 128, NULL, 2, &xMAX30102TaskHandle);
-
   xTaskCreate(vBMI270Task, "vBMI270Task", 128, NULL, 2, &xBMI270TaskHandle);
+
+  xTaskCreate(vMAX30102Task, "vMAX30102Task", 128, NULL, 2, &xMAX30102TaskHandle);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -496,6 +515,17 @@ void vAD8232Task(void *argument)
   /* USER CODE END 5 */
 }
 
+void vBMI270Task(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
+
 void vMAX30102Task(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -507,16 +537,6 @@ void vMAX30102Task(void *argument)
   /* USER CODE END 5 */
 }
 
-void vBMI270Task(void *argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END 5 */
-}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
