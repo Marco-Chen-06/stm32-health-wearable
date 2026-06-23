@@ -6,6 +6,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
 typedef struct {
 	int16_t acc_x;
 	int16_t acc_y;

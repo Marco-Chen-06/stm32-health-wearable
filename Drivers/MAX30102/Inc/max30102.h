@@ -7,6 +7,11 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+
 #define MAX30102_SAMPLE_LEN_MAX 32
 
 typedef struct max30102_t
