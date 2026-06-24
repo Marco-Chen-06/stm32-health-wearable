@@ -160,11 +160,17 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  xTaskCreate(vAD8232Task, "vAD8232Task", 128, NULL, 2, &xAD8232TaskHandle);
+  if (xTaskCreate(vAD8232Task, "vAD8232Task", 128, NULL, 2, &xAD8232TaskHandle) != pdPASS) {
+	  printf("AD8232Task create failed\r\n");
+  }
 
-  xTaskCreate(vBMI270Task, "vBMI270Task", 128, NULL, 2, &xBMI270TaskHandle);
+  if (xTaskCreate(vBMI270Task, "vBMI270Task", 128, NULL, 2, &xBMI270TaskHandle) != pdPASS) {
+	  printf("BMI270Task create failed\r\n");
+  }
 
-  xTaskCreate(vMAX30102Task, "vMAX30102Task", 128, NULL, 2, &xMAX30102TaskHandle);
+  if (xTaskCreate(vMAX30102Task, "vMAX30102Task", 512, NULL, 2, &xMAX30102TaskHandle) != pdPASS) {
+	  printf("MAX30102Task create failed\r\n");
+  }
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -481,7 +487,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -518,6 +524,7 @@ void vBMI270Task(void *argument)
   /* USER CODE END 5 */
 }
 
+
 void vMAX30102Task(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -538,7 +545,7 @@ void vMAX30102Task(void *argument)
 		if (max30102_has_interrupt(&max30102)) {
 			max30102_interrupt_handler(&max30102);
 		}
-		osDelay(pdMS_TO_TICKS(1));
+		osDelay(1);
 	}
   /* USER CODE END 5 */
 }
@@ -546,8 +553,11 @@ void vMAX30102Task(void *argument)
 // Override plot function
 void max30102_plot(uint32_t ir_sample)
 {
+//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+//	osDelay(100);
      printf("%lu\r\n", ir_sample);  // print IR adc value
 }
+
 
 
 

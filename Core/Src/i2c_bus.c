@@ -46,7 +46,7 @@ int i2c_bus_mem_write(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr,
 	i2c_bus_ctx_t *ctx;
 	ctx = i2c_get_ctx(hi2c);
 	if (!ctx) {
-		printf("I2C aborted during i2c_bus_mem_write because ctx is NULL. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		printf("I2C aborted during i2c_bus_mem_write: no ctx for handle \r\n");
 		return -1;
 	}
 	ctx->err = 0;
@@ -64,7 +64,7 @@ int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, 
 	i2c_bus_ctx_t *ctx;
 	ctx = i2c_get_ctx(hi2c);
 	if (!ctx) {
-		printf("I2C aborted during i2c_bus_mem_read because ctx is NULL. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		printf("I2C aborted during i2c_bus_mem_read: no ctx for handle \r\n");
 		return -1;
 	}
 	ctx->err = 0;

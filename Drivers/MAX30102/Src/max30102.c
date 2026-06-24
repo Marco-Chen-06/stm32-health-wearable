@@ -142,6 +142,7 @@ int max30102_read_fifo(max30102_t *dev) {
 	if (num_samples < 1) {
 		num_samples += 32;
 	}
+
 	uint8_t sample[3];
 	for (int8_t i = 0; i < num_samples; i++) {
 		max30102_read(dev, MAX30102_REG_FIFO_DATA, sample, 3);
