@@ -691,14 +691,6 @@ const uint8_t bmi270_config_file[] = { 0xc8, 0x2e, 0x00, 0x2e, 0x80, 0x2e, 0x3d,
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
-//#define I2C_INT_TIMEOUT_MS 100
-
-// 0 means i2c busy, 1 means i2c complete
-static volatile uint8_t i2c_done = 0;
-
-// 0 means no error. HAL_I2C_ErrorCallback updates this value on an error
-static volatile uint32_t i2c_err = 0;
-
 // hardcoded bmi270 init
 int bmi270_init(I2C_HandleTypeDef *hi2c) {
 

@@ -20,7 +20,7 @@ typedef struct max30102_t
 {
     I2C_HandleTypeDef *_ui2c;
     uint32_t _ir_samples[MAX30102_SAMPLE_LEN_MAX];
-    uint8_t _interrupt_flag;
+    volatile uint8_t _interrupt_flag;
 } max30102_t;
 
 typedef enum max30102_mode_t

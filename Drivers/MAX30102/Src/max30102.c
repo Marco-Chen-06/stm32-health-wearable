@@ -1,14 +1,6 @@
 #include "max30102.h"
 #include "max30102_hw.h"
 
-//#define I2C_INT_TIMEOUT_MS 100
-
-// 0 means i2c busy, 1 means i2c complete
-static volatile int8_t i2c_done = 0;
-
-// 0 means no error. HAL_I2C_ErrorCallback updates this value on an error
-static volatile uint32_t i2c_err = 0;
-
 /**
  * @brief Built-in plotting function. Called during an interrupt to print/plot the current sample.
  * @note Override this in your main.c if you do not use printf() for printing.
@@ -165,11 +157,11 @@ int max30102_read_fifo(max30102_t *dev) {
 //int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, uint8_t *pData, uint16_t size);
 
 int max30102_write(max30102_t *dev, uint8_t memAddr, const uint8_t *pData, uint16_t size) {
-	return i2c_bus_mem_write(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR << 1, memAddr, (uint8_t *) pData, size);
+	return i2c_bus_mem_write(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR, memAddr, (uint8_t *) pData, size);
 }
 
 int max30102_read(max30102_t *dev, uint8_t memAddr, uint8_t *pData, uint16_t size) {
-	return i2c_bus_mem_read(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR << 1, memAddr, pData, size);
+	return i2c_bus_mem_read(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR, memAddr, pData, size);
 }
 
 //int max30102_write(max30102_t *dev, uint8_t memAddr, const uint8_t *pData, uint16_t size) {

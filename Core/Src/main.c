@@ -492,11 +492,10 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 int __io_putchar(int ch) {
-	HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 0xFFFF);
-	return ch;
+    uint8_t c = (uint8_t)ch;
+    HAL_UART_Transmit(&huart2, &c, 1, HAL_MAX_DELAY);
+    return ch;
 }
-
-
 void vAD8232Task(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -543,6 +542,13 @@ void vMAX30102Task(void *argument)
 	}
   /* USER CODE END 5 */
 }
+
+// Override plot function
+void max30102_plot(uint32_t ir_sample)
+{
+     printf("%lu\r\n", ir_sample);  // print IR adc value
+}
+
 
 
 /* USER CODE END 4 */

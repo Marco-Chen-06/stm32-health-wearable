@@ -29,6 +29,7 @@ i2c_bus_ctx_t *i2c_get_ctx(I2C_HandleTypeDef *hi2c) {
 	return NULL;
 }
 
+// @param devAddr: pass in the unshifted devAddr
 int i2c_wait(i2c_bus_ctx_t *ctx, uint16_t devAddr) {
 	if (xSemaphoreTake(ctx->sem, pdMS_TO_TICKS(I2C_INT_TIMEOUT_MS)) != pdTRUE) {
 		HAL_I2C_Master_Abort_IT(ctx->hi2c, devAddr << 1);
@@ -40,23 +41,37 @@ int i2c_wait(i2c_bus_ctx_t *ctx, uint16_t devAddr) {
 	return 0;
 }
 
+// @param devAddr: pass in the unshifted devAddr
 int i2c_bus_mem_write(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, const uint8_t *pData, uint16_t size) {
 	i2c_bus_ctx_t *ctx;
 	ctx = i2c_get_ctx(hi2c);
+	if (!ctx) {
+		printf("I2C aborted during i2c_bus_mem_write because ctx is NULL. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		return -1;
+	}
+	ctx->err = 0;
+	xSemaphoreTake(ctx->sem, 0);
 	HAL_I2C_Mem_Write_IT(ctx->hi2c, devAddr << 1, memAddr, I2C_MEMADD_SIZE_8BIT, (uint8_t*) pData, size);
 	if (i2c_wait(ctx, devAddr) == -1) {
-		printf("I2C aborted during i2c_bus_mem_write. MemAddr: %x. DevAddr: %x. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		printf("I2C aborted during i2c_bus_mem_write. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
 		return -1;
 	}
 	return 0;
 }
 
+// @param devAddr: pass in the unshifted devAddr
 int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, uint8_t *pData, uint16_t size) {
 	i2c_bus_ctx_t *ctx;
 	ctx = i2c_get_ctx(hi2c);
+	if (!ctx) {
+		printf("I2C aborted during i2c_bus_mem_read because ctx is NULL. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		return -1;
+	}
+	ctx->err = 0;
+	xSemaphoreTake(ctx->sem, 0);
 	HAL_I2C_Mem_Read_IT(ctx->hi2c, devAddr << 1, memAddr, I2C_MEMADD_SIZE_8BIT, pData, size);
 	if (i2c_wait(ctx, devAddr) == -1) {
-		printf("I2C aborted during i2c_bus_mem_write. MemAddr: %x. DevAddr: %x. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
+		printf("I2C aborted during i2c_bus_mem_read. MemAddr: %02X. DevAddr: %02X. Errcode: %ld \r\n", memAddr, devAddr, ctx->err);
 		return -1;
 	}
 	return 0;
