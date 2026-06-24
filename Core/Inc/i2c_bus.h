@@ -18,6 +18,15 @@ typedef struct {
 	volatile uint32_t err;
 } i2c_bus_ctx_t;
 
+int i2c_bus_init(I2C_HandleTypeDef *bmi270_hi2c, I2C_HandleTypeDef *max30102_hi2c);
+
+i2c_bus_ctx_t *i2c_get_ctx(I2C_HandleTypeDef *hi2c);
+
 int i2c_wait(i2c_bus_ctx_t *ctx, uint16_t devAddr);
+
+int i2c_bus_mem_write(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, const uint8_t *pData, uint16_t size);
+
+int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, uint8_t *pData, uint16_t size);
+
 
 #endif

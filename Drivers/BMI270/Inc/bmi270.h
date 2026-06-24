@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "cmsis_os.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
@@ -37,11 +38,11 @@ int bmi270_power_save_enable(I2C_HandleTypeDef *hi2c);
 int bmi270_get_motion_data(I2C_HandleTypeDef *hi2c, bmi270_data_t *data);
 
 // I2C transaction functions
-int bmi270_write(I2C_HandleTypeDef *hi2c, uint16_t memAddr,
+int bmi270_write(I2C_HandleTypeDef *hi2c, uint8_t memAddr,
 		const uint8_t *pData, uint16_t size);
-int bmi270_read(I2C_HandleTypeDef *hi2c, uint16_t memAddr, uint8_t *pData,
+int bmi270_read(I2C_HandleTypeDef *hi2c, uint8_t memAddr, uint8_t *pData,
 		uint16_t size);
-int bmi270_write_byte(I2C_HandleTypeDef *hi2c, uint16_t memAddr, uint8_t byte);
-int bmi270_read_byte(I2C_HandleTypeDef *hi2c, uint16_t memAddr, uint8_t *byte);
+int bmi270_write_byte(I2C_HandleTypeDef *hi2c, uint8_t memAddr, uint8_t byte);
+int bmi270_read_byte(I2C_HandleTypeDef *hi2c, uint8_t memAddr, uint8_t *byte);
 
 #endif

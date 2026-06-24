@@ -30,6 +30,11 @@
 
 #include "i2c_bus.h"
 
+#include "max30102.h"
+#include "max30102_hw.h"
+#include "bmi270.h"
+#include "bmi270_hw.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,21 +71,7 @@ const osThreadAttr_t defaultTask_attributes = {
 TaskHandle_t xAD8232TaskHandle = NULL;
 TaskHandle_t xBMI270TaskHandle = NULL;
 TaskHandle_t xMAX30102TaskHandle = NULL;
-
-static i2c_bus_ctx_t bmi270_bus_ctx = {
-		.hi2c = &hi2c1,
-		.sem = NULL,
-		.err = 0,
-};
-
-static i2c_bus_ctx_t max30102_bus_ctx = {
-		.hi2c = &hi2c2,
-		.sem = NULL,
-		.err = 0,
-};
-
-
-
+max30102_t max30102;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -149,8 +140,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
-  bmi270_bus_ctx.sem = xSemaphoreCreateBinary();
-  max30102_bus_ctx.sem = xSemaphoreCreateBinary();
+  if (i2c_bus_init(&hi2c1, &hi2c2) != 0) {
+	  printf("i2c buses failed to initialize semaphores \r\n");
+	  return -1;
+  }
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -530,12 +523,27 @@ void vMAX30102Task(void *argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	max30102_init(&max30102, &hi2c2);
+	max30102_reset(&max30102);
+	max30102_clear_fifo(&max30102);
+	max30102_init_fifo(&max30102, max30102_smp_ave_8, 1, 7);
+
+	max30102_set_led_pulse_width(&max30102, max30102_pw_16_bit);
+	max30102_set_adc_resolution(&max30102, max30102_adc_2048);
+	max30102_set_sampling_rate(&max30102, max30102_sr_800);
+	max30102_set_led_current_1(&max30102, 6.2);
+
+	max30102_set_mode(&max30102, max30102_heart_rate);
+	max30102_set_ppg_ready(&max30102, 1);
+	for (;;) {
+		if (max30102_has_interrupt(&max30102)) {
+			max30102_interrupt_handler(&max30102);
+		}
+		osDelay(pdMS_TO_TICKS(1));
+	}
   /* USER CODE END 5 */
 }
+
 
 /* USER CODE END 4 */
 
