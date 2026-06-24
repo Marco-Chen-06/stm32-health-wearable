@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <math.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -31,9 +32,7 @@
 #include "i2c_bus.h"
 
 #include "max30102.h"
-#include "max30102_hw.h"
 #include "bmi270.h"
-#include "bmi270_hw.h"
 
 /* USER CODE END Includes */
 
@@ -87,6 +86,10 @@ void StartDefaultTask(void *argument);
 void vAD8232Task(void *pvParameters);
 void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
+
+static void print_motion_data_csv(bmi270_data_t data, long acc_mag);
+static long calculate_acc_mag(bmi270_data_t data);
+static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -164,7 +167,7 @@ int main(void)
 	  printf("AD8232Task create failed\r\n");
   }
 
-  if (xTaskCreate(vBMI270Task, "vBMI270Task", 128, NULL, 2, &xBMI270TaskHandle) != pdPASS) {
+  if (xTaskCreate(vBMI270Task, "vBMI270Task", 512, NULL, 2, &xBMI270TaskHandle) != pdPASS) {
 	  printf("BMI270Task create failed\r\n");
   }
 
@@ -516,12 +519,75 @@ void vAD8232Task(void *argument)
 void vBMI270Task(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+
+	if (bmi270_init(&hi2c1) == -1) {
+		printf("Error, bmi270 failed to initialize\r\n");
+		vTaskDelete(NULL);
+	}
+
+	bmi270_init_normal(&hi2c1);
+
+	bmi270_data_t data = {0};
+	long acc_mag = 0;
+	uint32_t last_data_time_ms = 0;
+	uint32_t last_fall_time_ms = 0;
+	// 10 msec period aligns with 100 Hz acceleration data rate in bmi270 normal mode.
+	uint32_t sample_period = 10;
+	// builtin LED turns on for 500 ms after a fall is detected
+	uint32_t led_duration = 500;
+	// 0 for no fall, 1 for fall
+	uint8_t fall_state = 0;
+
+	/* USER CODE END 2 */
+
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
+	for (;;) {
+		if ((HAL_GetTick() - last_data_time_ms) >= sample_period) {
+			last_data_time_ms = HAL_GetTick();
+			bmi270_get_motion_data(&hi2c1, &data);
+			acc_mag = calculate_acc_mag(data);
+			print_motion_data_csv(data, acc_mag);
+
+			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
+		}
+		if (fall_state == 1) {
+			if ((HAL_GetTick() - last_fall_time_ms) >= led_duration) {
+				last_fall_time_ms = HAL_GetTick();
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+				fall_state = 0;
+			}
+		}
+		/* USER CODE END WHILE */
+		/* USER CODE BEGIN 3 */
+	}
+
+
   /* USER CODE END 5 */
+}
+
+static void print_motion_data_csv(bmi270_data_t data, long acc_mag) {
+	printf("%d,%d,%d,%d,%d,%d,%lu\r\n", data.acc_x, data.acc_y, data.acc_z, data.gyr_x, data.gyr_y, data.gyr_z, acc_mag);
+}
+
+static long calculate_acc_mag(bmi270_data_t data) {
+	return sqrt(pow((long)data.acc_x, 2) + pow((long)data.acc_y, 2) + pow((long)data.acc_z, 2));
+}
+
+static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state) {
+	// bmi270 acc_z reads 4096 when stationary, so this corresponds to g = 9.8 m/s^2
+	int32_t g = 4096;
+	int32_t fall_threshold = g*3;
+	if (fall_state == 1) {
+		return 1;
+	}
+	if (acc_mag > fall_threshold) {
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+		*last_fall_time_ms = HAL_GetTick();
+		return 1;
+	}
+	return 0;
+
 }
 
 
