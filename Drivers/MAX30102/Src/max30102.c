@@ -120,13 +120,13 @@ int max30102_has_interrupt(max30102_t *dev) {
 }
 
 int max30102_interrupt_handler(max30102_t *dev) {
+	dev->_interrupt_flag = 0;
 	uint8_t reg[2] = {0x00};
 	// Interrupts are cleared whenever the interrupt status register is read
 	max30102_read(dev, MAX30102_REG_INT_STATUS1, reg, 2);
 	if (((reg[0] >> MAX30102_INT_STATUS1_A_FULL) & 0x01) || ((reg[0] >> MAX30102_INT_STATUS1_PPG_RDY) & 0x01)) {
 		max30102_read_fifo(dev);
 	}
-	dev->_interrupt_flag = 0;
 	return 0;
 }
 

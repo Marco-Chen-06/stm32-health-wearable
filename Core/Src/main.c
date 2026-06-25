@@ -39,6 +39,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 typedef enum {
+	SRC_AD8232,
 	SRC_BMI270,
 	SRC_MAX30102,
 } source_t;
@@ -47,6 +48,9 @@ typedef struct {
 	source_t source;
 	uint32_t timestamp;
 	union {
+		struct {
+			uint16_t adc_data;
+		} ad8232;
 		struct {
 			int16_t acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z;
 			int32_t acc_mag;
@@ -537,10 +541,28 @@ int __io_putchar(int ch) {
 void vAD8232Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
+  uint16_t adc_value = 0;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  HAL_ADC_Start(&hadc1);
+
+	  HAL_ADC_PollForConversion(&hadc1, 1);
+
+	  adc_value = HAL_ADC_GetValue(&hadc1);
+
+	  log_msg_t msg;
+
+	  msg.source = SRC_AD8232;
+
+	  msg.timestamp = HAL_GetTick();
+
+	  msg.data.ad8232.adc_data = adc_value;
+
+	  // xTicksToWait = 0 implies that we are fine with occasionaly missing data
+	  xQueueSend(xPlotQueue, &msg, 0);
+
+	  osDelay(10);
   }
   /* USER CODE END 5 */
 }
@@ -674,7 +696,10 @@ void vLogTask(void *pvParameters)
       xQueueReceive(xPlotQueue, &msg, portMAX_DELAY);
       do {
     	  // printing logic
-    	  if (msg.source == SRC_MAX30102) {
+    	  if (msg.source == SRC_AD8232) {
+    		  printf("ad8232,%d\r\n", msg.data.ad8232.adc_data);
+    	  }
+    	    else if (msg.source == SRC_MAX30102) {
     		  printf("max30102,%lu\r\n", msg.data.max30102.ir_data);
     	  } else if (msg.source == SRC_BMI270) {
     			printf("bmi270,%d,%d,%d,%d,%d,%d,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
