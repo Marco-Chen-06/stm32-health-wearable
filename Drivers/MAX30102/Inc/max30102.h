@@ -105,8 +105,4 @@ int max30102_has_interrupt(max30102_t *dev);
 int max30102_interrupt_handler(max30102_t *dev);
 int max30102_read_fifo(max30102_t *dev);
 
-
-
-
-
 #endif

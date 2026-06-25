@@ -151,11 +151,6 @@ int max30102_read_fifo(max30102_t *dev) {
 	}
 	return num_samples;
 }
-//
-//
-//int i2c_bus_mem_write(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, const uint8_t *pData, uint16_t size);
-//
-//int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, uint8_t *pData, uint16_t size);
 
 int max30102_write(max30102_t *dev, uint8_t memAddr, const uint8_t *pData, uint16_t size) {
 	return i2c_bus_mem_write(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR, memAddr, (uint8_t *) pData, size);
@@ -164,28 +159,6 @@ int max30102_write(max30102_t *dev, uint8_t memAddr, const uint8_t *pData, uint1
 int max30102_read(max30102_t *dev, uint8_t memAddr, uint8_t *pData, uint16_t size) {
 	return i2c_bus_mem_read(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR, memAddr, pData, size);
 }
-
-//int max30102_write(max30102_t *dev, uint8_t memAddr, const uint8_t *pData, uint16_t size) {
-//	i2c_err = 0;
-//	i2c_done = 0;
-//	HAL_I2C_Mem_Write_IT(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR << 1, memAddr, I2C_MEMADD_SIZE_8BIT, (uint8_t*) pData, size);
-//	if (i2c_wait(dev->_ui2c) == -1) {
-//		printf("I2C aborted during max30102_write(). MemAddr: %x. Errcode: %ld \r\n", memAddr, i2c_err);
-//		return -1;
-//	}
-//	return 0;
-//}
-//
-//int max30102_read(max30102_t *dev, uint8_t memAddr, uint8_t *pData, uint16_t size) {
-//	i2c_err = 0;
-//	i2c_done = 0;
-//	HAL_I2C_Mem_Read_IT(dev->_ui2c, MAX30102_I2C_DEFAULT_ADDR << 1, memAddr, I2C_MEMADD_SIZE_8BIT, pData, size);
-//	if (i2c_wait(dev->_ui2c) == -1) {
-//		printf("I2C aborted during max30102_read. MemAddr: %x. Errcode: %ld \r\n", memAddr, i2c_err);
-//		return -1;
-//	}
-//	return 0;
-//}
 
 int max30102_write_byte(max30102_t *dev, uint8_t memAddr, uint8_t byte) {
 	if (max30102_write(dev, memAddr, &byte, 1) == -1) {

@@ -810,10 +810,6 @@ int bmi270_get_motion_data(I2C_HandleTypeDef *hi2c, bmi270_data_t *data) {
 	return 0;
 }
 
-// int i2c_bus_mem_write(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, const uint8_t *pData, uint16_t size);
-
-// int i2c_bus_mem_read(I2C_HandleTypeDef *hi2c, uint8_t devAddr, uint8_t memAddr, uint8_t *pData, uint16_t size);
-
 int bmi270_write(I2C_HandleTypeDef *hi2c, uint8_t memAddr, const uint8_t *pData, uint16_t size) {
 	return i2c_bus_mem_write(hi2c, BMI270_I2C_DEFAULT_ADDR, memAddr, (uint8_t *) pData, size);
 }
@@ -821,37 +817,6 @@ int bmi270_write(I2C_HandleTypeDef *hi2c, uint8_t memAddr, const uint8_t *pData,
 int bmi270_read(I2C_HandleTypeDef *hi2c, uint8_t memAddr, uint8_t *pData, uint16_t size) {
 	return i2c_bus_mem_read(hi2c, BMI270_I2C_DEFAULT_ADDR, memAddr, pData, size);
 }
-//
-//// write to an address of the bmi270 over I2C. Size represents the size of the data to write, not including the memaddress.
-//int bmi270_write(I2C_HandleTypeDef *hi2c, uint8_t memAddr,
-//		const uint8_t *pData, uint16_t size) {
-//	i2c_err = 0;
-//	i2c_done = 0;
-//	HAL_I2C_Mem_Write_IT(hi2c, BMI270_I2C_DEFAULT_ADDR << 1, memAddr,
-//	I2C_MEMADD_SIZE_8BIT, (uint8_t*) pData, size);
-//	if (i2c_wait(hi2c) == -1) {
-//		printf(
-//				"I2C aborted during bmi270_write(). MemAddr: %x. Errcode: %ld \r\n",
-//				memAddr, i2c_err);
-//		return -1;
-//	}
-//	return 0;
-//}
-// read to an address of the bmi270 over I2C. This supports reading more than 1 byte of data.
-//int bmi270_read(I2C_HandleTypeDef *hi2c, uint16_t memAddr, uint8_t *pData,
-//		uint16_t size) {
-//	i2c_err = 0;
-//	i2c_done = 0;
-//	HAL_I2C_Mem_Read_IT(hi2c, BMI270_I2C_DEFAULT_ADDR << 1, memAddr,
-//	I2C_MEMADD_SIZE_8BIT, pData, size);
-//	if (i2c_wait(hi2c) == -1) {
-//		printf(
-//				"I2C aborted during bmi270_read(). MemAddr: %x. Errcode: %ld \r\n",
-//				memAddr, i2c_err);
-//		return -1;
-//	}
-//	return 0;
-//}
 
 int bmi270_write_byte(I2C_HandleTypeDef *hi2c, uint8_t memAddr, uint8_t byte) {
 	if (bmi270_write(hi2c, memAddr, &byte, 1) == -1) {

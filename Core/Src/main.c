@@ -48,7 +48,7 @@ typedef struct {
 	uint32_t timestamp;
 	union {
 		struct {
-			uint16_t acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z;
+			int16_t acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z;
 			int32_t acc_mag;
 		} bmi270;
 		struct {
@@ -108,7 +108,6 @@ void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
 void vLogTask(void *pvParameters);
 
-static void print_motion_data_csv(bmi270_data_t data, long acc_mag);
 static long calculate_acc_mag(bmi270_data_t data);
 static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state);
 /* USER CODE END PFP */
@@ -189,15 +188,15 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  if (xTaskCreate(vAD8232Task, "vAD8232Task", 128, NULL, 2, &xAD8232TaskHandle) != pdPASS) {
+  if (xTaskCreate(vAD8232Task, "vAD8232Task", 350, NULL, 2, &xAD8232TaskHandle) != pdPASS) {
 	  printf("AD8232Task create failed\r\n");
   }
 
-  if (xTaskCreate(vBMI270Task, "vBMI270Task", 512, NULL, 2, &xBMI270TaskHandle) != pdPASS) {
+  if (xTaskCreate(vBMI270Task, "vBMI270Task", 350, NULL, 2, &xBMI270TaskHandle) != pdPASS) {
 	  printf("BMI270Task create failed\r\n");
   }
 
-  if (xTaskCreate(vMAX30102Task, "vMAX30102Task", 512, NULL, 2, &xMAX30102TaskHandle) != pdPASS) {
+  if (xTaskCreate(vMAX30102Task, "vMAX30102Task", 350, NULL, 2, &xMAX30102TaskHandle) != pdPASS) {
 	  printf("MAX30102Task create failed\r\n");
   }
 
@@ -589,9 +588,7 @@ void vBMI270Task(void *pvParameters)
 			msg.data.bmi270.gyr_z = data.gyr_z;
 			msg.data.bmi270.acc_mag = acc_mag;
 			// xTicksToWait = 0 implies that we are fine with occasionaly missing data
-			xQueueSend(xPlotQueue, &msg, 0);
-
-//			print_motion_data_csv(data, acc_mag);
+			xQueueSend(xPlotQueue, &msg, 0);;
 
 			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
 		}
@@ -608,10 +605,6 @@ void vBMI270Task(void *pvParameters)
 
 
   /* USER CODE END 5 */
-}
-
-static void print_motion_data_csv(bmi270_data_t data, long acc_mag) {
-	printf("%d,%d,%d,%d,%d,%d,%lu\r\n", data.acc_x, data.acc_y, data.acc_z, data.gyr_x, data.gyr_y, data.gyr_z, acc_mag);
 }
 
 static long calculate_acc_mag(bmi270_data_t data) {
@@ -634,7 +627,6 @@ static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_s
 
 }
 
-
 void vMAX30102Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
@@ -656,8 +648,6 @@ void vMAX30102Task(void *pvParameters)
 		if (max30102_has_interrupt(&max30102)) {
 			max30102_interrupt_handler(&max30102);
 		}
-//		log_msg.data.max30102.ir_data =
-		osDelay(1);
 	}
   /* USER CODE END 5 */
 }
@@ -671,7 +661,6 @@ void max30102_plot(uint32_t ir_sample)
 	msg.data.max30102.ir_data = ir_sample;
 	// xTicksToWait = 0 implies we are fine with dropping data occasionaly
 	xQueueSend(xPlotQueue, &msg, 0);
-//     printf("%lu\r\n", ir_sample);  // print IR adc value
 }
 
 void vLogTask(void *pvParameters)
@@ -686,9 +675,9 @@ void vLogTask(void *pvParameters)
       do {
     	  // printing logic
     	  if (msg.source == SRC_MAX30102) {
-    		  printf("bmi270,%lu\r\n", msg.data.max30102.ir_data);
+    		  printf("max30102,%lu\r\n", msg.data.max30102.ir_data);
     	  } else if (msg.source == SRC_BMI270) {
-    			printf("max30102,%d,%d,%d,%d,%d,%d,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
+    			printf("bmi270,%d,%d,%d,%d,%d,%d,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
     					msg.data.bmi270.gyr_x, msg.data.bmi270.gyr_y, msg.data.bmi270.gyr_z, msg.data.bmi270.acc_mag);
     	  }
       } while (xQueueReceive(xPlotQueue, &msg, 0) == pdTRUE);
