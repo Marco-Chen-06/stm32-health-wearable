@@ -38,7 +38,24 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef enum {
+	SRC_BMI270,
+	SRC_MAX30102,
+} source_t;
 
+typedef struct {
+	source_t source;
+	uint32_t timestamp;
+	union {
+		struct {
+			uint16_t acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z;
+			int32_t acc_mag;
+		} bmi270;
+		struct {
+			uint32_t ir_data;
+		} max30102;
+	} data;
+} log_msg_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -70,6 +87,9 @@ const osThreadAttr_t defaultTask_attributes = {
 TaskHandle_t xAD8232TaskHandle = NULL;
 TaskHandle_t xBMI270TaskHandle = NULL;
 TaskHandle_t xMAX30102TaskHandle = NULL;
+TaskHandle_t xLogTaskHandle = NULL;
+
+QueueHandle_t xPlotQueue;
 max30102_t max30102;
 /* USER CODE END PV */
 
@@ -86,6 +106,7 @@ void StartDefaultTask(void *argument);
 void vAD8232Task(void *pvParameters);
 void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
+void vLogTask(void *pvParameters);
 
 static void print_motion_data_csv(bmi270_data_t data, long acc_mag);
 static long calculate_acc_mag(bmi270_data_t data);
@@ -155,6 +176,11 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  xPlotQueue = xQueueCreate(30, sizeof(log_msg_t));
+  if (xPlotQueue == NULL) {
+	  printf("xPlotQueue failed to intiailize \r\n");
+	  return -1;
+  }
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -173,6 +199,10 @@ int main(void)
 
   if (xTaskCreate(vMAX30102Task, "vMAX30102Task", 512, NULL, 2, &xMAX30102TaskHandle) != pdPASS) {
 	  printf("MAX30102Task create failed\r\n");
+  }
+
+  if (xTaskCreate(vLogTask, "vLogTask", 512, NULL, 2, &xLogTaskHandle) != pdPASS) {
+	  printf("LogTask create failed \r\n");
   }
   /* USER CODE END RTOS_THREADS */
 
@@ -505,7 +535,7 @@ int __io_putchar(int ch) {
     HAL_UART_Transmit(&huart2, &c, 1, HAL_MAX_DELAY);
     return ch;
 }
-void vAD8232Task(void *argument)
+void vAD8232Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
@@ -516,7 +546,7 @@ void vAD8232Task(void *argument)
   /* USER CODE END 5 */
 }
 
-void vBMI270Task(void *argument)
+void vBMI270Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
 
@@ -547,7 +577,21 @@ void vBMI270Task(void *argument)
 			last_data_time_ms = HAL_GetTick();
 			bmi270_get_motion_data(&hi2c1, &data);
 			acc_mag = calculate_acc_mag(data);
-			print_motion_data_csv(data, acc_mag);
+
+			log_msg_t msg;
+			msg.source = SRC_BMI270;
+			msg.timestamp = HAL_GetTick();
+			msg.data.bmi270.acc_x = data.acc_x;
+			msg.data.bmi270.acc_y = data.acc_y;
+			msg.data.bmi270.acc_z = data.acc_z;
+			msg.data.bmi270.gyr_x = data.gyr_x;
+			msg.data.bmi270.gyr_y = data.gyr_y;
+			msg.data.bmi270.gyr_z = data.gyr_z;
+			msg.data.bmi270.acc_mag = acc_mag;
+			// xTicksToWait = 0 implies that we are fine with occasionaly missing data
+			xQueueSend(xPlotQueue, &msg, 0);
+
+//			print_motion_data_csv(data, acc_mag);
 
 			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
 		}
@@ -591,7 +635,7 @@ static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_s
 }
 
 
-void vMAX30102Task(void *argument)
+void vMAX30102Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
@@ -607,10 +651,12 @@ void vMAX30102Task(void *argument)
 
 	max30102_set_mode(&max30102, max30102_heart_rate);
 	max30102_set_ppg_ready(&max30102, 1);
+
 	for (;;) {
 		if (max30102_has_interrupt(&max30102)) {
 			max30102_interrupt_handler(&max30102);
 		}
+//		log_msg.data.max30102.ir_data =
 		osDelay(1);
 	}
   /* USER CODE END 5 */
@@ -619,12 +665,36 @@ void vMAX30102Task(void *argument)
 // Override plot function
 void max30102_plot(uint32_t ir_sample)
 {
-//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-//	osDelay(100);
-     printf("%lu\r\n", ir_sample);  // print IR adc value
+	log_msg_t msg;
+	msg.source = SRC_MAX30102;
+	msg.timestamp = HAL_GetTick();
+	msg.data.max30102.ir_data = ir_sample;
+	// xTicksToWait = 0 implies we are fine with dropping data occasionaly
+	xQueueSend(xPlotQueue, &msg, 0);
+//     printf("%lu\r\n", ir_sample);  // print IR adc value
 }
 
-
+void vLogTask(void *pvParameters)
+{
+  /* USER CODE BEGIN 5 */
+  log_msg_t msg;
+  /* Infinite loop */
+  for(;;)
+  {
+	  // wait until there is 1 or more items, then drain all items
+      xQueueReceive(xPlotQueue, &msg, portMAX_DELAY);
+      do {
+    	  // printing logic
+    	  if (msg.source == SRC_MAX30102) {
+    		  printf("bmi270,%lu\r\n", msg.data.max30102.ir_data);
+    	  } else if (msg.source == SRC_BMI270) {
+    			printf("max30102,%d,%d,%d,%d,%d,%d,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
+    					msg.data.bmi270.gyr_x, msg.data.bmi270.gyr_y, msg.data.bmi270.gyr_z, msg.data.bmi270.acc_mag);
+    	  }
+      } while (xQueueReceive(xPlotQueue, &msg, 0) == pdTRUE);
+  }
+  /* USER CODE END 5 */
+}
 
 
 /* USER CODE END 4 */

@@ -23,6 +23,11 @@ typedef struct max30102_t
     volatile uint8_t _interrupt_flag;
 } max30102_t;
 
+typedef struct {
+	uint32_t ir_sample;
+} max30102_data_t;
+
+
 typedef enum max30102_mode_t
 {
     max30102_heart_rate = 0x02,
