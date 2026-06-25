@@ -1,3 +1,8 @@
+/*
+ * i2c_bus.h
+ * implementation file for multithreaded i2c bus management between i2c1 and i2c2 peripherals
+ */
+
 #ifndef I2C_BUS_H
 #define I2C_BUS_H
 

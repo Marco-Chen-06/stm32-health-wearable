@@ -1,3 +1,8 @@
+/*
+ * i2c_bus.c
+ * implementation file for multithreaded i2c bus management between i2c1 and i2c2 peripherals
+ */
+
 #include "i2c_bus.h"
 
 static i2c_bus_ctx_t bmi270_ctx;
