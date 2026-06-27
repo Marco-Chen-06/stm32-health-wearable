@@ -30,7 +30,7 @@
 #include "semphr.h"
 
 #include "i2c_bus.h"
-
+#include "algorithms.h"
 #include "max30102.h"
 #include "bmi270.h"
 
@@ -112,7 +112,6 @@ void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
 void vLogTask(void *pvParameters);
 
-static long calculate_acc_mag(bmi270_data_t data);
 static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state);
 /* USER CODE END PFP */
 
@@ -594,43 +593,55 @@ void vBMI270Task(void *pvParameters)
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	for (;;) {
-		if ((HAL_GetTick() - last_data_time_ms) >= sample_period) {
-			last_data_time_ms = HAL_GetTick();
-			bmi270_get_motion_data(&hi2c1, &data);
-			acc_mag = calculate_acc_mag(data);
+		bmi270_get_motion_data(&hi2c1, &data);
+		acc_mag = calculate_acc_mag(data);
 
-			log_msg_t msg;
-			msg.source = SRC_BMI270;
-			msg.timestamp = HAL_GetTick();
-			msg.data.bmi270.acc_x = data.acc_x;
-			msg.data.bmi270.acc_y = data.acc_y;
-			msg.data.bmi270.acc_z = data.acc_z;
-			msg.data.bmi270.gyr_x = data.gyr_x;
-			msg.data.bmi270.gyr_y = data.gyr_y;
-			msg.data.bmi270.gyr_z = data.gyr_z;
-			msg.data.bmi270.acc_mag = acc_mag;
-			// xTicksToWait = 0 implies that we are fine with occasionaly missing data
-			xQueueSend(xPlotQueue, &msg, 0);;
-
-			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
-		}
-		if (fall_state == 1) {
-			if ((HAL_GetTick() - last_fall_time_ms) >= led_duration) {
-				last_fall_time_ms = HAL_GetTick();
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-				fall_state = 0;
-			}
-		}
+		log_msg_t msg;
+		msg.source = SRC_BMI270;
+		msg.timestamp = HAL_GetTick();
+		msg.data.bmi270.acc_x = data.acc_x;
+		msg.data.bmi270.acc_y = data.acc_y;
+		msg.data.bmi270.acc_z = data.acc_z;
+		msg.data.bmi270.gyr_x = data.gyr_x;
+		msg.data.bmi270.gyr_y = data.gyr_y;
+		msg.data.bmi270.gyr_z = data.gyr_z;
+		msg.data.bmi270.acc_mag = acc_mag;
+		// xTicksToWait = 0 implies that we are fine with occasionaly missing data
+		xQueueSend(xPlotQueue, &msg, 0);
+		osDelay(10);
+//		if ((HAL_GetTick() - last_data_time_ms) >= sample_period) {
+//			last_data_time_ms = HAL_GetTick();
+//			bmi270_get_motion_data(&hi2c1, &data);
+//			acc_mag = calculate_acc_mag(data);
+//
+//			log_msg_t msg;
+//			msg.source = SRC_BMI270;
+//			msg.timestamp = HAL_GetTick();
+//			msg.data.bmi270.acc_x = data.acc_x;
+//			msg.data.bmi270.acc_y = data.acc_y;
+//			msg.data.bmi270.acc_z = data.acc_z;
+//			msg.data.bmi270.gyr_x = data.gyr_x;
+//			msg.data.bmi270.gyr_y = data.gyr_y;
+//			msg.data.bmi270.gyr_z = data.gyr_z;
+//			msg.data.bmi270.acc_mag = acc_mag;
+//			// xTicksToWait = 0 implies that we are fine with occasionaly missing data
+//			xQueueSend(xPlotQueue, &msg, 0);;
+//
+//			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
+//		}
+//		if (fall_state == 1) {
+//			if ((HAL_GetTick() - last_fall_time_ms) >= led_duration) {
+//				last_fall_time_ms = HAL_GetTick();
+//				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+//				fall_state = 0;
+//			}
+//		}
 		/* USER CODE END WHILE */
 		/* USER CODE BEGIN 3 */
 	}
 
 
   /* USER CODE END 5 */
-}
-
-static long calculate_acc_mag(bmi270_data_t data) {
-	return sqrt(pow((long)data.acc_x, 2) + pow((long)data.acc_y, 2) + pow((long)data.acc_z, 2));
 }
 
 static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state) {
