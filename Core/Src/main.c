@@ -95,6 +95,9 @@ TaskHandle_t xLogTaskHandle = NULL;
 
 QueueHandle_t xPlotQueue;
 max30102_t max30102;
+
+fall_state_t state = IDLE;
+int exit_code = EXIT_UNKNOWN; // always assume failure in defensive programming
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -112,7 +115,6 @@ void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
 void vLogTask(void *pvParameters);
 
-static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -577,6 +579,8 @@ void vBMI270Task(void *pvParameters)
 
 	bmi270_init_normal(&hi2c1);
 
+	exit_code = NORMAL_OPERATION;
+
 	bmi270_data_t data = {0};
 	long acc_mag = 0;
 	uint32_t last_data_time_ms = 0;
@@ -593,6 +597,21 @@ void vBMI270Task(void *pvParameters)
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	for (;;) {
+
+		while (exit_code == NORMAL_OPERATION) {
+			switch(state) {
+				case IDLE:
+					break;
+				case FREEFALL:
+					break;
+				case STABCHECK1:
+					break;
+				case STABCHECK2:
+					break;
+				case FALL_OCCURED:
+					break;
+			}
+		}
 		bmi270_get_motion_data(&hi2c1, &data);
 		acc_mag = calculate_acc_mag(data);
 
@@ -609,38 +628,7 @@ void vBMI270Task(void *pvParameters)
 		// xTicksToWait = 0 implies that we are fine with occasionaly missing data
 		xQueueSend(xPlotQueue, &msg, 0);
 		osDelay(10);
-//		if ((HAL_GetTick() - last_data_time_ms) >= sample_period) {
-//			last_data_time_ms = HAL_GetTick();
-//			bmi270_get_motion_data(&hi2c1, &data);
-//			acc_mag = calculate_acc_mag(data);
-//
-//			log_msg_t msg;
-//			msg.source = SRC_BMI270;
-//			msg.timestamp = HAL_GetTick();
-//			msg.data.bmi270.acc_x = data.acc_x;
-//			msg.data.bmi270.acc_y = data.acc_y;
-//			msg.data.bmi270.acc_z = data.acc_z;
-//			msg.data.bmi270.gyr_x = data.gyr_x;
-//			msg.data.bmi270.gyr_y = data.gyr_y;
-//			msg.data.bmi270.gyr_z = data.gyr_z;
-//			msg.data.bmi270.acc_mag = acc_mag;
-//			// xTicksToWait = 0 implies that we are fine with occasionaly missing data
-//			xQueueSend(xPlotQueue, &msg, 0);;
-//
-//			fall_state = detect_fall(acc_mag, &last_fall_time_ms, fall_state);
-//		}
-//		if (fall_state == 1) {
-//			if ((HAL_GetTick() - last_fall_time_ms) >= led_duration) {
-//				last_fall_time_ms = HAL_GetTick();
-//				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-//				fall_state = 0;
-//			}
-//		}
-		/* USER CODE END WHILE */
-		/* USER CODE BEGIN 3 */
 	}
-
-
   /* USER CODE END 5 */
 }
 
