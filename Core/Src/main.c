@@ -115,6 +115,7 @@ void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
 void vLogTask(void *pvParameters);
 
+static void queue_motion_data(bmi270_data_t data, long acc_mag);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -583,14 +584,8 @@ void vBMI270Task(void *pvParameters)
 
 	bmi270_data_t data = {0};
 	long acc_mag = 0;
-	uint32_t last_data_time_ms = 0;
-	uint32_t last_fall_time_ms = 0;
-	// 10 msec period aligns with 100 Hz acceleration data rate in bmi270 normal mode.
-	uint32_t sample_period = 10;
-	// builtin LED turns on for 500 ms after a fall is detected
-	uint32_t led_duration = 500;
-	// 0 for no fall, 1 for fall
-	uint8_t fall_state = 0;
+	int32_t g = 4096;
+	int32_t fall_threshold = 0.8*g;
 
 	/* USER CODE END 2 */
 
@@ -599,10 +594,18 @@ void vBMI270Task(void *pvParameters)
 	for (;;) {
 
 		while (exit_code == NORMAL_OPERATION) {
+			bmi270_get_motion_data(&hi2c1, &data);
+			acc_mag = calculate_acc_mag(data);
+			queue_motion_data(data, acc_mag);
+
 			switch(state) {
 				case IDLE:
+					if (acc_mag <= fall_threshold) {
+						state = FREEFALL;
+					}
 					break;
 				case FREEFALL:
+
 					break;
 				case STABCHECK1:
 					break;
@@ -612,39 +615,27 @@ void vBMI270Task(void *pvParameters)
 					break;
 			}
 		}
-		bmi270_get_motion_data(&hi2c1, &data);
-		acc_mag = calculate_acc_mag(data);
-
-		log_msg_t msg;
-		msg.source = SRC_BMI270;
-		msg.timestamp = HAL_GetTick();
-		msg.data.bmi270.acc_x = data.acc_x;
-		msg.data.bmi270.acc_y = data.acc_y;
-		msg.data.bmi270.acc_z = data.acc_z;
-		msg.data.bmi270.gyr_x = data.gyr_x;
-		msg.data.bmi270.gyr_y = data.gyr_y;
-		msg.data.bmi270.gyr_z = data.gyr_z;
-		msg.data.bmi270.acc_mag = acc_mag;
-		// xTicksToWait = 0 implies that we are fine with occasionaly missing data
-		xQueueSend(xPlotQueue, &msg, 0);
-		osDelay(10);
 	}
   /* USER CODE END 5 */
 }
 
-static int detect_fall(long acc_mag, uint32_t *last_fall_time_ms, uint8_t fall_state) {
-	// bmi270 acc_z reads 4096 when stationary, so this corresponds to g = 9.8 m/s^2
-	int32_t g = 4096;
-	int32_t fall_threshold = g*3;
-	if (fall_state == 1) {
-		return 1;
-	}
-	if (acc_mag > fall_threshold) {
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-		*last_fall_time_ms = HAL_GetTick();
-		return 1;
-	}
-	return 0;
+static void queue_motion_data(bmi270_data_t data, long acc_mag) {
+
+	log_msg_t msg;
+	msg.source = SRC_BMI270;
+	msg.timestamp = HAL_GetTick();
+	msg.data.bmi270.acc_x = data.acc_x;
+	msg.data.bmi270.acc_y = data.acc_y;
+	msg.data.bmi270.acc_z = data.acc_z;
+	msg.data.bmi270.gyr_x = data.gyr_x;
+	msg.data.bmi270.gyr_y = data.gyr_y;
+	msg.data.bmi270.gyr_z = data.gyr_z;
+	msg.data.bmi270.acc_mag = acc_mag;
+	// xTicksToWait = 0 implies that we are fine with occasionaly missing data
+	xQueueSend(xPlotQueue, &msg, 0);
+}
+
+static void collect_sample_points(uint16_t num_samples, bmi270_data_t *databuf) {
 
 }
 
