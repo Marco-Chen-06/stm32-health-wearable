@@ -642,10 +642,10 @@ void vBMI270Task(void *pvParameters)
 					}
 					break;
 				case FALL_OCCURED:
+					state = IDLE;
 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 					osDelay(1000);
 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-					state = IDLE;
 					break;
 			}
 			osDelay(10);

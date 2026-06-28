@@ -17,7 +17,7 @@ from scipy.signal import find_peaks
 SOURCES = {
     "max30102": {"num_channels": 1, "ax": 0, "labels": ["ir_data"]},
     "ad8232": {"num_channels": 1, "ax": 1, "labels": ["ecg_adc_data"]},
-    "bmi270": {"num_channels": 7, "ax": 2, "labels": ["acc_x", "acc_y", "acc_z", "gyr_x", "gyr_y", "gyr_z", "acc_mag"]}
+    "bmi270": {"num_channels": 8, "ax": 2, "labels": ["acc_x", "acc_y", "acc_z", "gyr_x", "gyr_y", "gyr_z", "acc_mag", "gyr_mag"]}
 }
 
 PORT = "/dev/ttyACM0"
