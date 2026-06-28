@@ -13,6 +13,7 @@ from matplotlib.animation import FuncAnimation
 
 import numpy as np
 from scipy.signal import find_peaks
+from filters import filter_sample, fs
 
 SOURCES = {
     "max30102": {"num_channels": 1, "ax": 0, "labels": ["ir_data"]},
@@ -42,6 +43,8 @@ def update(frame):
             values = [int(p) for p in parts[1:]] 
             if len(values) != SOURCES[source]["num_channels"]:
                 continue
+            if source == "ad8232":
+                values = [filter_sample(values[0])]
         except (UnicodeDecodeError, ValueError):
             continue
         for i, v in enumerate(values):

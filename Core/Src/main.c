@@ -549,28 +549,50 @@ void vAD8232Task(void *pvParameters)
 {
   /* USER CODE BEGIN 5 */
   uint16_t adc_value = 0;
+  uint8_t lo_minus = 0;
+  uint8_t lo_plus = 0;
+
+  uint8_t prev_lo_minus = 0;
+  uint32_t stable_ms;
+  const uint32_t AD8232_SAMPLE_PERIOD_MS = 10;
+  const uint32_t REQUIRED_STABLE_MS = 1000;
   /* Infinite loop */
   for(;;)
   {
 	  if (state == IDLE) {
-		  HAL_ADC_Start(&hadc1);
+		  lo_minus = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1);
+		  lo_plus = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2);
 
-		  HAL_ADC_PollForConversion(&hadc1, 1);
+		  // make stable_ms 0 if we detect any lo_minus transition
+		  if (lo_plus != 0 || lo_minus != 0 || lo_minus != prev_lo_minus) {
+			  stable_ms = 0;
+		  } else {
+			  stable_ms += AD8232_SAMPLE_PERIOD_MS;
+		  }
+		  prev_lo_minus = lo_minus;
 
-		  adc_value = HAL_ADC_GetValue(&hadc1);
 
-		  log_msg_t msg;
+		  // collect data only if all 3 electrodes are connected
+		  if (stable_ms >= REQUIRED_STABLE_MS) {
+			  HAL_ADC_Start(&hadc1);
 
-		  msg.source = SRC_AD8232;
+			  HAL_ADC_PollForConversion(&hadc1, 1);
 
-		  msg.timestamp = HAL_GetTick();
+			  adc_value = HAL_ADC_GetValue(&hadc1);
 
-		  msg.data.ad8232.adc_data = adc_value;
+			  log_msg_t msg;
 
-		  // xTicksToWait = 0 implies that we are fine with occasionaly missing data
-		  xQueueSend(xPlotQueue, &msg, 0);
+			  msg.source = SRC_AD8232;
+
+			  msg.timestamp = HAL_GetTick();
+
+			  msg.data.ad8232.adc_data = adc_value;
+
+			  // xTicksToWait = 0 implies that we are fine with occasionaly missing data
+			  xQueueSend(xPlotQueue, &msg, 0);
+		  }
 	  }
-	  osDelay(10);
+	  osDelay(AD8232_SAMPLE_PERIOD_MS);
   }
   /* USER CODE END 5 */
 }
