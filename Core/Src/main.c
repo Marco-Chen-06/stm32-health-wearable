@@ -53,7 +53,7 @@ typedef struct {
 		} ad8232;
 		struct {
 			int16_t acc_x, acc_y, acc_z, gyr_x, gyr_y, gyr_z;
-			int32_t acc_mag;
+			int32_t acc_mag, gyr_mag;
 		} bmi270;
 		struct {
 			uint32_t ir_data;
@@ -98,6 +98,10 @@ max30102_t max30102;
 
 fall_state_t state = IDLE;
 int exit_code = EXIT_UNKNOWN; // always assume failure in defensive programming
+
+static bmi270_data_t stability_data[NUM_STABILITY_SAMPLES];
+static int32_t stability_acc_mag[NUM_STABILITY_SAMPLES];
+static int32_t stability_gyr_mag[NUM_STABILITY_SAMPLES];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -115,7 +119,8 @@ void vBMI270Task(void *pvParameters);
 void vMAX30102Task(void *pvParameters);
 void vLogTask(void *pvParameters);
 
-static void queue_motion_data(bmi270_data_t data, long acc_mag);
+static void queue_motion_data(bmi270_data_t data, long acc_mag, long gyr_mag);
+static void collect_sample_points(bmi270_data_t *databuf, uint16_t num_samples);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -547,23 +552,24 @@ void vAD8232Task(void *pvParameters)
   /* Infinite loop */
   for(;;)
   {
-	  HAL_ADC_Start(&hadc1);
+	  if (state == IDLE) {
+		  HAL_ADC_Start(&hadc1);
 
-	  HAL_ADC_PollForConversion(&hadc1, 1);
+		  HAL_ADC_PollForConversion(&hadc1, 1);
 
-	  adc_value = HAL_ADC_GetValue(&hadc1);
+		  adc_value = HAL_ADC_GetValue(&hadc1);
 
-	  log_msg_t msg;
+		  log_msg_t msg;
 
-	  msg.source = SRC_AD8232;
+		  msg.source = SRC_AD8232;
 
-	  msg.timestamp = HAL_GetTick();
+		  msg.timestamp = HAL_GetTick();
 
-	  msg.data.ad8232.adc_data = adc_value;
+		  msg.data.ad8232.adc_data = adc_value;
 
-	  // xTicksToWait = 0 implies that we are fine with occasionaly missing data
-	  xQueueSend(xPlotQueue, &msg, 0);
-
+		  // xTicksToWait = 0 implies that we are fine with occasionaly missing data
+		  xQueueSend(xPlotQueue, &msg, 0);
+	  }
 	  osDelay(10);
   }
   /* USER CODE END 5 */
@@ -580,12 +586,12 @@ void vBMI270Task(void *pvParameters)
 
 	bmi270_init_normal(&hi2c1);
 
+	state = IDLE;
 	exit_code = NORMAL_OPERATION;
 
 	bmi270_data_t data = {0};
 	long acc_mag = 0;
-	int32_t g = 4096;
-	int32_t fall_threshold = 0.8*g;
+	long gyr_mag = 0;
 
 	/* USER CODE END 2 */
 
@@ -596,30 +602,59 @@ void vBMI270Task(void *pvParameters)
 		while (exit_code == NORMAL_OPERATION) {
 			bmi270_get_motion_data(&hi2c1, &data);
 			acc_mag = calculate_acc_mag(data);
-			queue_motion_data(data, acc_mag);
-
+			gyr_mag = calculate_gyr_mag(data);
+			queue_motion_data(data, acc_mag, gyr_mag);
 			switch(state) {
 				case IDLE:
-					if (acc_mag <= fall_threshold) {
+					if ((acc_mag <= WEIGHTLESS_THRESHOLD) && (acc_mag != 0)) {
 						state = FREEFALL;
 					}
 					break;
 				case FREEFALL:
-
+					uint8_t impact_found = 0; // 0 for no impact, 1 for yes impact
+					collect_sample_points(stability_data, NUM_STABILITY_SAMPLES);
+					// find out if there is a sudden acceleration change to suggest a fall occured
+					for (size_t i = 0; i < NUM_STABILITY_SAMPLES; i++) {
+						if (stability_acc_mag[i] >= IMPACT_THRESHOLD) {
+							impact_found = 1;
+							break;
+						}
+					}
+					state = impact_found ? STABCHECK1: IDLE;
 					break;
+				// from here on, we are post-processing the fall to check for stability
 				case STABCHECK1:
+					int32_t stddev_acc = 0;
+					stddev_acc = calculate_stddev(&stability_acc_mag[150], 50);
+					if (stddev_acc < STABILITY_THRESHOLD_ACC) {
+						state = STABCHECK2;
+					} else {
+						state = IDLE;
+					}
 					break;
 				case STABCHECK2:
+					int32_t stddev_gyr = 0;
+					stddev_gyr = calculate_stddev(&stability_gyr_mag[150], 50);
+					if (stddev_gyr < STABILITY_THRESHOLD_GYR) {
+						state = FALL_OCCURED;
+					} else {
+						state = IDLE;
+					}
 					break;
 				case FALL_OCCURED:
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+					osDelay(1000);
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+					state = IDLE;
 					break;
 			}
+			osDelay(10);
 		}
 	}
   /* USER CODE END 5 */
 }
 
-static void queue_motion_data(bmi270_data_t data, long acc_mag) {
+static void queue_motion_data(bmi270_data_t data, long acc_mag, long gyr_mag) {
 
 	log_msg_t msg;
 	msg.source = SRC_BMI270;
@@ -631,12 +666,23 @@ static void queue_motion_data(bmi270_data_t data, long acc_mag) {
 	msg.data.bmi270.gyr_y = data.gyr_y;
 	msg.data.bmi270.gyr_z = data.gyr_z;
 	msg.data.bmi270.acc_mag = acc_mag;
+	msg.data.bmi270.gyr_mag = gyr_mag;
 	// xTicksToWait = 0 implies that we are fine with occasionaly missing data
 	xQueueSend(xPlotQueue, &msg, 0);
 }
 
-static void collect_sample_points(uint16_t num_samples, bmi270_data_t *databuf) {
-
+static void collect_sample_points(bmi270_data_t *databuf, uint16_t num_samples) {
+	int32_t acc_mag = 0;
+	int32_t gyr_mag = 0;
+	for (size_t i = 0; i < num_samples; i++) {
+		bmi270_get_motion_data(&hi2c1, &databuf[i]);
+		acc_mag = calculate_acc_mag(databuf[i]);
+		gyr_mag = calculate_gyr_mag(databuf[i]);
+		stability_acc_mag[i] = acc_mag;
+		stability_gyr_mag[i] = gyr_mag;
+		queue_motion_data(databuf[i], acc_mag, gyr_mag);
+		osDelay(10);
+	}
 }
 
 void vMAX30102Task(void *pvParameters)
@@ -667,12 +713,14 @@ void vMAX30102Task(void *pvParameters)
 // Override plot function
 void max30102_plot(uint32_t ir_sample)
 {
-	log_msg_t msg;
-	msg.source = SRC_MAX30102;
-	msg.timestamp = HAL_GetTick();
-	msg.data.max30102.ir_data = ir_sample;
-	// xTicksToWait = 0 implies we are fine with dropping data occasionaly
-	xQueueSend(xPlotQueue, &msg, 0);
+	if (state == IDLE) {
+		log_msg_t msg;
+		msg.source = SRC_MAX30102;
+		msg.timestamp = HAL_GetTick();
+		msg.data.max30102.ir_data = ir_sample;
+		// xTicksToWait = 0 implies we are fine with dropping data occasionaly
+		xQueueSend(xPlotQueue, &msg, 0);
+	}
 }
 
 void vLogTask(void *pvParameters)
@@ -692,8 +740,8 @@ void vLogTask(void *pvParameters)
     	    else if (msg.source == SRC_MAX30102) {
     		  printf("max30102,%lu\r\n", msg.data.max30102.ir_data);
     	  } else if (msg.source == SRC_BMI270) {
-    			printf("bmi270,%d,%d,%d,%d,%d,%d,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
-    					msg.data.bmi270.gyr_x, msg.data.bmi270.gyr_y, msg.data.bmi270.gyr_z, msg.data.bmi270.acc_mag);
+    			printf("bmi270,%d,%d,%d,%d,%d,%d,%lu,%lu\r\n", msg.data.bmi270.acc_x, msg.data.bmi270.acc_y, msg.data.bmi270.acc_z,
+    					msg.data.bmi270.gyr_x, msg.data.bmi270.gyr_y, msg.data.bmi270.gyr_z, msg.data.bmi270.acc_mag, msg.data.bmi270.gyr_mag);
     	  }
       } while (xQueueReceive(xPlotQueue, &msg, 0) == pdTRUE);
   }
