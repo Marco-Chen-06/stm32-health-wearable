@@ -763,10 +763,6 @@ int bmi270_init_normal(I2C_HandleTypeDef *hi2c) {
 	// disable the adv_power_save bit, leave the fifo_self_wakeup enabled
 	bmi270_write_byte(hi2c, BMI270_REG_PWR_CONF, 0x02);
 
-	uint8_t byte;
-	bmi270_read_byte(hi2c, BMI270_REG_GYR_RANGE, &byte);
-	printf("gyroscope range byte: %d\r\n", byte);
-
 	return 0;
 }
 
